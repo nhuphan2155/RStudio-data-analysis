@@ -1,0 +1,231 @@
+---
+title: "Chlorophyll-a index is affected by the presence of Trichodesmium"
+author: "500371329"
+subtitle: "Project 3"
+date: "University of Sydney | DATA1001 | October 2021"
+output:
+  html_document:
+    fig_caption: yes
+    number_sections: yes
+    self_contained: yes
+    theme: flatly
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
+---
+
+<br>
+
+# Recommendation
+
+There is change in chlorophyll-a level during the presence of Trichodesmium blooms, resulting in changing water quality in the ocean. This finding will be benefit for AIMS (Australian Institute of Marine Science) to monitor water quality.
+
+<br>
+
+# Domain knowledge
+
+Concentrations of the plant pigment chlorophyll-a (occurs in all marine phytoplankton) are a useful proxy indicator of the amount of nutrients incorporated into phytoplankton biomass. Chlorophyll-a is today the most commonly used parameter for the monitoring of phytoplankton biomass and nutrient status, as an index of water quality. High levels often indicate poor water quality and low levels often suggest good conditions.
+
+The presence of Trichodesmium can have an impact to chlorophyll-a level.
+
+<br>
+
+# Initial Data Analysis (IDA)
+
+```{r, message=F}
+
+library(tidyverse)
+library(RColorBrewer)
+
+# Read in your data
+
+## Option 1: International Airlines operating from Australia
+flights = read.csv("http://www.maths.usyd.edu.au/u/UG/JM/DATA1001/r/current/projects/2020data/flights.csv")
+
+## Option 2: Penalty Notices in Australia
+penalties = read.csv("http://www.maths.usyd.edu.au/u/UG/JM/DATA1001/r/current/projects/2020data/penalities.csv")
+
+## Option 3: Great Barrier Reef Chlorophyll Monitoring
+gbr = read.csv("http://www.maths.usyd.edu.au/u/UG/JM/DATA1001/r/current/projects/2020data/GBR.csv")
+
+```
+
+```{r, message=F}
+gbr_cleaned <- gbr %>% 
+    mutate(TRICHODESMIUM = case_when(
+      tolower(TRICHODESMIUM) == 'a' ~ 'Absent', # get A or a and convert to Absent
+      tolower(TRICHODESMIUM) == "p" ~ 'Present', # get P or p and convert to Present
+      TRICHODESMIUM == 'No Record' ~ 'Absent', # get No record and convert to Absent
+      TRICHODESMIUM == '' ~ 'Absent', # get blank and convert to Absent
+      TRUE ~ TRICHODESMIUM # keep everything else
+  ))
+```
+
+```{r, message=F}
+gbr_cleaned$TRICHODESMIUM <- as.factor(gbr_cleaned$TRICHODESMIUM) # Reclassify column TRICHODESMIUM to factor
+```
+
+The variables in the data are explored below.
+
+```{r}
+# structure
+str(gbr_cleaned)
+```
+
+<br>
+
+# Evidence
+
+> **Question : Is there a difference in Chlorophyll-a level if we compare the absence and the presence of Trichodesmium?**
+
+## Hypothesis
+
+We can address this question by performing a two sample T-test [2 sided].
+
+- $H_0$: The Chlorophyll-a level is not different between absent group and present group
+- $H_1$: The Chlorophyll-a level is different between 2 groups
+
+## Assumptions
+
+### Assumptions (original data)
+
+**Boxplot**
+
+The boxplot can be used to simultaneously check for **normality** and **equal variance** assumptions. 
+
+```{r}
+ggplot(data = gbr_cleaned , aes(x = TRICHODESMIUM, y=CHL_A, fill = TRICHODESMIUM )) + 
+  geom_boxplot()+ 
+  scale_fill_brewer(palette = "Set1")+
+  xlab ("Chlorophyll-a level")+
+  ylab ("Trichodesmium")+
+  ggtitle("Boxplot of Chlorophyll-a level by Trichodesmium") 
+```
+
+**Histogram**
+
+The histogram can be used to check for the assumption of **normality** in each sample.
+
+```{r}
+ggplot(gbr_cleaned, aes(CHL_A)) +
+geom_histogram(binwidth = 1)+
+  facet_wrap(~ TRICHODESMIUM) +
+  xlab("Chlorophyll-a level")+
+  ggtitle("Histogram of Chlorophyll-a level by Trichodesmium")
+
+```
+
+**QQ-plot**
+
+The QQ-plot can be used to check for the assumption of **normality** in each sample.
+
+```{r}
+ggplot(gbr_cleaned, aes(sample = CHL_A, colour = TRICHODESMIUM)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ TRICHODESMIUM) +
+  xlab("Theoretical quantiles") + 
+  ylab("Sample quantiles")+
+  ggtitle("QQ-plot of Chlorophyll-a level by Trichodesmium")
+```
+
+Both groups look asymmetric and not normal. Hence we transform the non-normal data to check assumptions again before performing a T-test
+
+**Levene's Test (F-test)**
+
+The F-test can be used to check for the assumption of **equal variances** in each sample.
+
+```{r}
+var.test (CHL_A ~ TRICHODESMIUM, gbr_cleaned)
+```
+
+The F-test gives p-value < 0.05 suggesting that data does not have equal variance.
+
+### Assumptions (transformed data)
+
+**Boxplot**
+
+```{r}
+ggplot(data = gbr_cleaned, aes(x = TRICHODESMIUM, y=log(CHL_A), fill = TRICHODESMIUM )) + 
+  geom_boxplot()+ 
+  scale_fill_brewer(palette = "Set1")+
+  xlab ("Log of Chlorophyll-a level")+
+  ylab ("Trichodesmium")+
+  ggtitle("Boxplot of Log of Chlorophyll-a level by Trichodesmium") 
+```
+
+**Histogram**
+
+```{r}
+ggplot(gbr_cleaned, aes(log(CHL_A)), ) +
+geom_histogram(binwidth = 0.5)+
+  facet_wrap(~ TRICHODESMIUM) +
+  xlab("Log of Chlorophyll-a level")+
+  ggtitle("Histogram of Log of Chlorophyll-a level by Trichodesmium")
+
+```
+
+**QQ-plot**
+
+```{r}
+ggplot(gbr_cleaned, aes(sample = log(CHL_A), colour = TRICHODESMIUM)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ TRICHODESMIUM) +
+  xlab("Theoretical quantiles") + 
+  ylab("Sample quantiles")+
+  ggtitle("QQ-plot of Log of Chlorophyll-a level by Trichodesmium")
+```
+
+The data appears to be right-skewed in both groups, but can reasonably fit the assumption of normality as most of the sample data are close to the diagonal line.
+
+- **Independent**: 2 samples are independent as data were collected in different time and locations.
+- **Normality**: Both groups appear symmetrical, which is consistent with normality even some outliers are observed.
+- **Equal variances**: Both groups seem to have have similar spread, but we will use Levene's Test (F-test) to check if the assumption of equal variances is met.
+
+```{r}
+var.test (log(CHL_A) ~ TRICHODESMIUM, gbr_cleaned)
+```
+
+The F-test gives p-value < 0.05 suggesting that transformed data does not have equal variance.
+
+Since normality assumption is met, but equal variances assumption is not met, we run a Welch two-sample T-test:
+
+## Test statistic and p-value
+
+```{r}
+t_test_results <- t.test(log(gbr_cleaned$CHL_A) ~ TRICHODESMIUM, gbr_cleaned, var.equal = FALSE)
+t_test_results
+
+```
+
+```{r}
+t_test_results_TS <- round(t_test_results$statistic,2)
+t_test_results_pvalue <- 2*round(t_test_results$p.value,2)
+
+```
+
+- T: The **observed test statistic** is `r t_test_results_TS`
+- P: The p-value is `r t_test_results_pvalue` \< 0.05.
+
+## Conclusions
+
+**Statistical conclusion**: We reject the null hypothesis that there is no difference between absent group and present group of Trichodesmium.
+
+**Scientific conclusion**: The evidence suggests that the presence of Trichodesmium does impact Chlorophyll-a level, as a result impact water quality index .
+
+<br>
+
+# References
+
+G. B. Jones. Department of Chemistry and BiochemistryJames Cook University of North Queensland Townsville Australia 1992 'Effect of Trichodesmium Blooms on Water Quality in the Great Barrier Reef Lagoon' https://link.springer.com/chapter/10.1007/978-94-015-7977-3_18
+
+Australian Institute of Marine Science (AIMS) 'The Great Barrier Reef Long-term Chlorophyll Monitoring (1992-2009)'  https://researchdata.edu.au/great-barrier-reef-1992-2009/677311
+
+Australian Online Coastal Information 'Chlorophyll a concentrations' https://ozcoasts.org.au/indicators/biophysical-indicators/chlorophyll_a/
+
+Dr Katharina Fabricius. Australian Institute of Marine Science 'Water quality guidelines for the Great Barrier Reef' https://eatlas.org.au/content/water-quality-guidelines-great-barrier-reef
+
+
+
